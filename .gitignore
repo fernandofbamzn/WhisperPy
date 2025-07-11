@@ -1,5 +1,6 @@
 /WhispVenv/
 /Venv/
+/models/
 __pycache__/
 *.m4a
 *.wav
