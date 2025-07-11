@@ -17,7 +17,6 @@ class WhisperGUI:
         master.geometry("700x500")
 
         self.file_path = tk.StringVar()
-        self.usar_entorno = tk.BooleanVar(value=False)
         self.modelo = tk.StringVar(value="base")
         self.idioma = tk.StringVar(value="es")
 
@@ -52,7 +51,6 @@ class WhisperGUI:
         ttk.Label(config_frame, text="Idioma:").pack(side=tk.LEFT)
         self.combo_idioma = ttk.Combobox(config_frame, textvariable=self.idioma, values=self.IDIOMAS, width=5)
         self.combo_idioma.pack(side=tk.LEFT, padx=5)
-        ttk.Checkbutton(config_frame, text="Usar entorno", variable=self.usar_entorno).pack(side=tk.LEFT, padx=5)
 
         ttk.Button(cont, text="Transcribir", command=self.iniciar_transcripcion).pack(pady=10)
 
@@ -92,9 +90,8 @@ class WhisperGUI:
         modelo = self._model_map.get(seleccionado, seleccionado)
         idioma = self.idioma.get() or None
         try:
-            self._append_message("Transcribiendo...")
-            env_path = os.path.join(os.getcwd(), "venv") if self.usar_entorno.get() else None
-            nombre_salida = transcribe_audio(ruta, modelo, idioma or "", env_path)
+            self._append_message("Iniciando transcripción...")
+            nombre_salida = transcribe_audio(ruta, modelo, idioma or "", status_cb=self._append_message)
             self._append_message(f"Transcripción completada: {nombre_salida}")
         except Exception as e:
             self._append_message(f"Error: {e}")
