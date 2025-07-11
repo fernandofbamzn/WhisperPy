@@ -2,32 +2,32 @@ import os
 import sys
 import tkinter as tk
 
+from env_manager import EnvironmentManager
 from gui import WhisperGUI
 
+ENV_NAME = "WhispVenv"
 
-def ensure_venv():
-    """Reejecuta el script usando la venv local si existe y no estamos en una."""
-    # Comprobamos si no se ejecuta ya en un entorno virtual
-    in_venv = sys.prefix != getattr(sys, "base_prefix", sys.prefix)
-    if in_venv:
-        return
 
+def prepare_env() -> str:
+    """Ensure the WhispVenv environment exists and relaunch under it."""
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    venv_dir = os.path.join(base_dir, "venv")
-    if not os.path.isdir(venv_dir):
-        return
+    env_path = os.path.join(base_dir, ENV_NAME)
+    manager = EnvironmentManager()
+    manager.create_env(env_path)
+    manager.install_dependencies(env_path, ["openai-whisper", "requests"])
 
-    if os.name == "nt":
-        python_exec = os.path.join(venv_dir, "Scripts", "python.exe")
-    else:
-        python_exec = os.path.join(venv_dir, "bin", "python")
-
-    if os.path.exists(python_exec):
+    running_env = os.path.abspath(sys.prefix)
+    target_env = os.path.abspath(env_path)
+    if running_env != target_env:
+        python_exec = os.path.join(env_path, "Scripts", "python.exe") if os.name == "nt" else os.path.join(env_path, "bin", "python")
+        print("Reiniciando aplicación en el entorno virtual...")
         os.execv(python_exec, [python_exec] + sys.argv)
+
+    return env_path
 
 
 if __name__ == "__main__":
-    ensure_venv()
+    prepare_env()
     root = tk.Tk()
     app = WhisperGUI(root)
     root.mainloop()

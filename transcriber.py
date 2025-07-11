@@ -3,7 +3,7 @@ import subprocess
 import sys
 
 
-def transcribe_audio(audio_path, model, language, env_path=None):
+def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None):
     """Transcribe an audio file using Whisper.
 
     Parameters
@@ -18,6 +18,8 @@ def transcribe_audio(audio_path, model, language, env_path=None):
         Path to a virtual environment whose Python interpreter should be
         used to run Whisper. If not provided, the system's default
         interpreter will be used.
+    status_cb : callable, optional
+        Function called with status messages during the process.
 
     Returns
     -------
@@ -52,6 +54,14 @@ def transcribe_audio(audio_path, model, language, env_path=None):
     if language:
         cmd.extend(["--language", language])
 
+    cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "whisper")
+    model_file = os.path.join(cache_dir, f"{model}.pt")
+    if status_cb and not os.path.exists(model_file):
+        status_cb("Descargando modelo...")
+
+    if status_cb:
+        status_cb("Transcribiendo audio...")
+
     try:
         subprocess.run(cmd, capture_output=True, text=True, check=True)
     except subprocess.CalledProcessError as e:
@@ -63,6 +73,8 @@ def transcribe_audio(audio_path, model, language, env_path=None):
 
     try:
         os.replace(default_output, target_output)
+        if status_cb:
+            status_cb("Transcripción finalizada")
     except Exception as e:
         raise RuntimeError(f"Error al mover el archivo de salida: {e}")
 

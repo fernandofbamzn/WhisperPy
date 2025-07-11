@@ -6,14 +6,14 @@ Aplicación gráfica básica para pruebas con Whisper.
 
 - Python 3.8 o superior
 - Bibliotecas `requests` y `openai-whisper`
-- (Opcional) crear un entorno virtual llamado `venv` en la carpeta del programa
+- (Opcional) crear un entorno virtual llamado `WhispVenv` en la carpeta del programa
 
 ## Ejecución
 
 1. Instalar las dependencias (preferiblemente en un entorno virtual):
    ```bash
-   python -m venv venv
-   source venv/bin/activate  # En Windows: venv\Scripts\activate
+   python -m venv WhispVenv
+   source WhispVenv/bin/activate  # En Windows: WhispVenv\Scripts\activate
    pip install requests openai-whisper
    ```
 
@@ -21,8 +21,8 @@ Aplicación gráfica básica para pruebas con Whisper.
    ```bash
    python main.py
    ```
-   Si `main.py` detecta la carpeta `venv` y no se está dentro de un entorno
-   virtual, reiniciará el programa utilizando ese entorno.
+   Al ejecutarse, `main.py` creará si es necesario el entorno `WhispVenv`
+   y reiniciará la aplicación dentro de él.
 
 Al abrir la aplicación, el desplegable de modelos indica con "(local)" los
 modelos que ya se encuentran descargados en la carpeta `models`.
@@ -33,9 +33,9 @@ modelos que ya se encuentran descargados en la carpeta `models`.
 
 El proyecto se divide en varios módulos principales:
 
-- **`main.py`**: punto de entrada. Comprueba si existe un directorio
-  `venv` y relanza el programa con ese intérprete si es necesario. Luego
-  crea la ventana principal e inicia la interfaz gráfica.
+- **`main.py`**: punto de entrada. Crea (si es necesario) el directorio
+  `WhispVenv`, instala las dependencias y relanza el programa con ese
+  intérprete antes de mostrar la interfaz gráfica.
 - **`gui.py`**: define la clase `WhisperGUI`, que construye la interfaz
   basada en Tkinter. Gestiona la selección de archivos y opciones y lanza
   la transcripción en un hilo para evitar bloqueos.
@@ -52,8 +52,8 @@ El proyecto se divide en varios módulos principales:
 
 ### Clases y funciones destacadas
 
-- **`ensure_venv()`** (`main.py`): verifica si se está ejecutando dentro
-  del entorno virtual e intenta relanzar el programa en la venv local.
+- **`prepare_env()`** (`main.py`): prepara el entorno `WhispVenv`,
+  instalando dependencias y relanzando la aplicación dentro de él.
 - **`WhisperGUI`** (`gui.py`): interfaz con métodos para seleccionar
   archivos (`seleccionar_archivo`), iniciar la tarea de transcripción
   (`iniciar_transcripcion`) y manejar el resultado.
