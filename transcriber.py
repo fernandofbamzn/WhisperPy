@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 import logging
+import re
 from pathlib import Path
 from env_manager import EnvironmentManager  # Importar EnvironmentManager
 
@@ -10,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def convert_audio(input_path: str) -> str:
-    """Convert an audio file to WAV using FFmpeg and return the new path."""
+    """Convert an audio file to a Whisper-compatible WAV and return its path."""
     if not EnvironmentManager.check_ffmpeg_executable():
         msg = (
             "Se requiere FFmpeg para convertir el archivo de audio. "
@@ -20,10 +21,25 @@ def convert_audio(input_path: str) -> str:
         raise RuntimeError(msg)
 
     output_path = os.path.splitext(input_path)[0] + ".wav"
+    if Path(output_path).exists():
+        logger.info("Usando WAV existente: %s", output_path)
+        return output_path
+
     logger.info("Convirtiendo %s a %s", input_path, output_path)
     try:
         subprocess.run(
-            ["ffmpeg", "-y", "-i", input_path, output_path], check=True
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                input_path,
+                "-ar",
+                "16000",
+                "-ac",
+                "1",
+                output_path,
+            ],
+            check=True,
         )
     except subprocess.CalledProcessError as e:
         logger.error("Error al convertir audio: %s", e)
@@ -68,44 +84,36 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
 
 
     default_output = output_dir / f"{base_name}.txt"
-    target_output = output_dir / f"{base_name}_transc.txt"
+    target_output = output_dir / f"{base_name}_{model}.txt"
     logger.info("Preparando transcripción de %s", audio_path)
 
-    supported = {".wav", ".m4a", ".mp3", ".ogg", ".flac", ".webm"}
     audio_for_whisper = audio_path
-
-    # Convertir archivos con extensiones desconocidas a WAV
-    if file_extension not in supported:
-        if status_cb:
-            status_cb("Convirtiendo audio...")
-        audio_for_whisper = convert_audio(audio_path)
-    # Verificar FFmpeg para extensiones que dependen de él
-    elif file_extension in [".m4a", ".mp3", ".ogg", ".flac", ".webm"]:
+    if file_extension != ".wav":
         if not EnvironmentManager.check_ffmpeg_executable():
             msg = (
-                f"El archivo '{audio_path.name}' es de tipo '{file_extension}' "
-                "y requiere FFmpeg para su procesamiento. "
-                "FFmpeg no se encontró en el sistema o no está en el PATH. "
-                "Por favor, instala FFmpeg y asegúrate de que esté accesible. "
-                "Puedes descargarlo desde: https://ffmpeg.org/download.html"
+                "Se requiere FFmpeg para procesar el archivo de audio. "
+                "FFmpeg no se encontró en el sistema o no está en el PATH."
             )
             logger.error(msg)
             if status_cb:
                 status_cb(f"ERROR: {msg}")
             raise RuntimeError(msg)
+        if status_cb:
+            status_cb("Convirtiendo audio...")
+        audio_for_whisper = convert_audio(audio_path)
 
-    # Configuración de los comandos y entorno para el subproceso de Whisper
-    # Crear un diccionario de entorno copiando el actual y configurando PYTHONIOENCODING
+    # Configuración del entorno para Whisper
     whisper_env = os.environ.copy()
     whisper_env['PYTHONIOENCODING'] = 'utf-8'
 
     # Definir la ruta local para guardar los modelos
     app_base_dir = os.path.dirname(os.path.abspath(__file__))
     local_models_dir = os.path.join(app_base_dir, "models")
-    os.makedirs(local_models_dir, exist_ok=True) # Asegurarse de que la carpeta 'models' exista
+    os.makedirs(local_models_dir, exist_ok=True)  # Asegurarse de que la carpeta 'models' exista
 
     # Establecer WHISPER_CACHE_DIR para que Whisper guarde los modelos aquí
     whisper_env['WHISPER_CACHE_DIR'] = local_models_dir
+    whisper_env['XDG_CACHE_HOME'] = local_models_dir
     logger.info(f"Los modelos de Whisper se gestionarán en: {local_models_dir}")
 
     if env_path:
@@ -117,44 +125,96 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
         )
         if not python_exe.exists():
             raise RuntimeError(f"No se encontró el intérprete de Python en {python_exe}")
-        cmd = [python_exe, "-m", "whisper", audio_for_whisper,
-               "--model", model,
-               "--output_format", "txt",
-               "--output_dir", str(output_dir)]
+        cmd = [
+            str(python_exe),
+            "-m",
+            "whisper",
+            str(audio_for_whisper),
+            "--model",
+            model,
+            "--model_dir",
+            local_models_dir,
+            "--output_format",
+            "txt",
+            "--output_dir",
+            str(output_dir),
+        ]
         logger.info("Usando intérprete de entorno: %s", python_exe)
     else:
-        cmd = [sys.executable, "-m", "whisper", audio_for_whisper,
-               "--model", model,
-               "--output_format", "txt",
-               "--output_dir", str(output_dir)]
+        cmd = [
+            sys.executable,
+            "-m",
+            "whisper",
+            str(audio_for_whisper),
+            "--model",
+            model,
+            "--model_dir",
+            local_models_dir,
+            "--output_format",
+            "txt",
+            "--output_dir",
+            str(output_dir),
+        ]
         logger.info("Usando intérprete actual: %s", sys.executable)
 
     if language:
         cmd.extend(["--language", language])
     logger.info("Ejecutando comando: %s", " ".join(cmd))
 
-    cache_dir = Path(os.path.expanduser("~")) / ".cache" / "whisper"
-    model_file = cache_dir / f"{model}.pt"
-    if status_cb and not model_file.exists():
-        status_cb("Descargando modelo...")
-
+    model_file = Path(local_models_dir) / f"{model}.pt"
+    downloading = False
     if status_cb:
-        status_cb("Transcribiendo audio...")
+        if not model_file.exists():
+            status_cb("Descargando modelo...")
+            downloading = True
+        else:
+            status_cb("Transcribiendo audio...")
     logger.info("Iniciando transcripción con modelo %s", model)
 
     try:
-        # Almacenamos el resultado de subprocess.run para acceder a stdout/stderr
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace', check=True, env=whisper_env)
-        # Registramos la salida estándar y de error para depuración, incluso si no hay error
-        if result.stdout:
-            logger.info("Salida estándar de Whisper:\n%s", result.stdout.strip())
-        if result.stderr:
-            logger.warning("Salida de error de Whisper:\n%s", result.stderr.strip())
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            env=whisper_env,
+        )
 
-    except subprocess.CalledProcessError as e:
-        msg = e.stderr.strip() or e.stdout.strip() or str(e)
-        logger.error("Error al ejecutar Whisper: %s", msg)
-        raise RuntimeError(f"Error al ejecutar Whisper: {msg}")
+        fp16_warning = "FP16 is not supported on CPU; using FP32 instead"
+        # Captura las líneas de progreso "XX%|" que muestra HuggingFace durante
+        # la descarga de modelos para convertirlas en un mensaje más legible
+        progress_re = re.compile(r"(?P<pct>\d{1,3})%")
+        for line in process.stdout:
+            if downloading and model_file.exists():
+                if status_cb:
+                    status_cb("Transcribiendo audio...")
+                downloading = False
+            line = line.rstrip()
+            if not line:
+                continue
+            if fp16_warning in line:
+                logger.info("Whisper: %s", fp16_warning)
+                continue
+            m = progress_re.search(line)
+            if m:
+                pct = m.group("pct")
+                msg = f"Descargando modelo... {pct}%"
+                logger.info("Whisper: %s", msg)
+                if status_cb:
+                    status_cb(msg)
+                continue
+            logger.info("Whisper: %s", line)
+            if status_cb:
+                status_cb(line)
+
+        process.wait()
+        if process.returncode != 0:
+            raise RuntimeError(f"Whisper finalizó con código {process.returncode}")
+
+    except Exception as e:
+        logger.error("Error al ejecutar Whisper: %s", e)
+        raise RuntimeError(f"Error al ejecutar Whisper: {e}")
 
     if not os.path.exists(default_output):
         error_msg = f"No se encontró el archivo de salida esperado: {default_output}. " \
