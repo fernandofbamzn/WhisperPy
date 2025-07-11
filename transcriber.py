@@ -269,10 +269,12 @@ def diarize_transcription(audio_path: str, transcript_file: str, status_cb=None)
         ) from exc
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    compute_type = "float16" if device == "cuda" else "int8"
+    
     if status_cb:
         status_cb("Asignando hablantes...")
 
-    model = whisperx.load_model("small", device)
+    model = whisperx.load_model("small", device, compute_type=compute_type)
     result = model.transcribe(audio_path)
     diarize_model = whisperx.DiarizationPipeline(use_auth_token=None, device=device)
     diarize_segments = diarize_model(audio_path)
