@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 import logging
+import re
 from pathlib import Path
 from env_manager import EnvironmentManager  # Importar EnvironmentManager
 
@@ -181,6 +182,7 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
         )
 
         fp16_warning = "FP16 is not supported on CPU; using FP32 instead"
+        progress_re = re.compile(r"\d+%\|")
         for line in process.stdout:
             if downloading and model_file.exists():
                 if status_cb:
@@ -191,6 +193,8 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
                 continue
             if fp16_warning in line:
                 logger.info("Whisper: %s", fp16_warning)
+                continue
+            if progress_re.search(line):
                 continue
             logger.info("Whisper: %s", line)
             if status_cb:
