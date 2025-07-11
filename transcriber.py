@@ -1,6 +1,10 @@
 import os
 import subprocess
 import sys
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None):
@@ -36,6 +40,7 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
     base_name = os.path.splitext(os.path.basename(audio_path))[0]
     default_output = os.path.join(output_dir, f"{base_name}.txt")
     target_output = os.path.join(output_dir, f"{base_name}_transc.txt")
+    logger.info("Preparando transcripción de %s", audio_path)
 
     if env_path:
         python_exe = os.path.join(env_path, "Scripts", "python.exe") if os.name == "nt" else os.path.join(env_path, "bin", "python")
@@ -45,14 +50,17 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
                "--model", model,
                "--output_format", "txt",
                "--output_dir", output_dir]
+        logger.info("Usando intérprete de entorno: %s", python_exe)
     else:
         cmd = [sys.executable, "-m", "whisper", audio_path,
                "--model", model,
                "--output_format", "txt",
                "--output_dir", output_dir]
+        logger.info("Usando intérprete actual: %s", sys.executable)
 
     if language:
         cmd.extend(["--language", language])
+    logger.info("Ejecutando comando: %s", " ".join(cmd))
 
     cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "whisper")
     model_file = os.path.join(cache_dir, f"{model}.pt")
@@ -61,11 +69,13 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
 
     if status_cb:
         status_cb("Transcribiendo audio...")
+    logger.info("Iniciando transcripción con modelo %s", model)
 
     try:
         subprocess.run(cmd, capture_output=True, text=True, check=True)
     except subprocess.CalledProcessError as e:
         msg = e.stderr.strip() or e.stdout.strip() or str(e)
+        logger.error("Error al ejecutar Whisper: %s", msg)
         raise RuntimeError(f"Error al ejecutar Whisper: {msg}")
 
     if not os.path.exists(default_output):
@@ -75,7 +85,9 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
         os.replace(default_output, target_output)
         if status_cb:
             status_cb("Transcripción finalizada")
+        logger.info("Transcripción finalizada: %s", target_output)
     except Exception as e:
+        logger.error("Error al mover el archivo de salida: %s", e)
         raise RuntimeError(f"Error al mover el archivo de salida: {e}")
 
     if not os.path.exists(target_output) or os.path.getsize(target_output) <= 0:

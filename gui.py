@@ -1,10 +1,26 @@
 import os
 import threading
 import tkinter as tk
+import logging
 from tkinter import filedialog, messagebox, ttk
 
 from model_manager import WhisperModelManager
 from transcriber import transcribe_audio
+
+
+class TextHandler(logging.Handler):
+    """Logging handler that writes messages to a callback."""
+
+    def __init__(self, callback):
+        super().__init__()
+        self.callback = callback
+
+    def emit(self, record):
+        msg = self.format(record)
+        try:
+            self.callback(msg)
+        except Exception:
+            pass
 
 class WhisperGUI:
     """Interfaz gráfica para transcribir audios."""
@@ -21,6 +37,9 @@ class WhisperGUI:
         self.idioma = tk.StringVar(value="es")
 
         self._build_widgets()
+        handler = TextHandler(self._append_message)
+        handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+        logging.getLogger().addHandler(handler)
 
     def _build_widgets(self) -> None:
         cont = ttk.Frame(self.master, padding=10)
