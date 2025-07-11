@@ -156,41 +156,48 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
     logger.info("Ejecutando comando: %s", " ".join(cmd))
 
     model_file = Path(local_models_dir) / f"{model}.pt"
+    downloading = False
     if status_cb:
         if not model_file.exists():
             status_cb("Descargando modelo...")
+            downloading = True
         else:
             status_cb("Transcribiendo audio...")
     logger.info("Iniciando transcripción con modelo %s", model)
 
     try:
-        # Almacenamos el resultado de subprocess.run para acceder a stdout/stderr
-        result = subprocess.run(
+        process = subprocess.Popen(
             cmd,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             text=True,
-            encoding='utf-8',
-            check=True,
+            encoding="utf-8",
             env=whisper_env,
         )
-        # Registramos la salida estándar y de error para depuración, incluso si no hay error
-        if result.stdout:
-            logger.info("Salida estándar de Whisper:\n%s", result.stdout.strip())
-        if result.stderr:
-            stderr_msg = result.stderr.strip()
-            fp16_warning = "FP16 is not supported on CPU; using FP32 instead"
-            if fp16_warning in stderr_msg:
-                logger.info("Whisper: %s", fp16_warning)
-                stderr_msg = "\n".join(
-                    line for line in stderr_msg.splitlines() if fp16_warning not in line
-                ).strip()
-            if stderr_msg:
-                logger.warning("Salida de error de Whisper:\n%s", stderr_msg)
 
-    except subprocess.CalledProcessError as e:
-        msg = e.stderr.strip() or e.stdout.strip() or str(e)
-        logger.error("Error al ejecutar Whisper: %s", msg)
-        raise RuntimeError(f"Error al ejecutar Whisper: {msg}")
+        fp16_warning = "FP16 is not supported on CPU; using FP32 instead"
+        for line in process.stdout:
+            if downloading and model_file.exists():
+                if status_cb:
+                    status_cb("Transcribiendo audio...")
+                downloading = False
+            line = line.rstrip()
+            if not line:
+                continue
+            if fp16_warning in line:
+                logger.info("Whisper: %s", fp16_warning)
+                continue
+            logger.info("Whisper: %s", line)
+            if status_cb:
+                status_cb(line)
+
+        process.wait()
+        if process.returncode != 0:
+            raise RuntimeError(f"Whisper finalizó con código {process.returncode}")
+
+    except Exception as e:
+        logger.error("Error al ejecutar Whisper: %s", e)
+        raise RuntimeError(f"Error al ejecutar Whisper: {e}")
 
     if not os.path.exists(default_output):
         error_msg = f"No se encontró el archivo de salida esperado: {default_output}. " \

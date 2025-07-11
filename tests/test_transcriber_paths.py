@@ -7,19 +7,29 @@ from unittest import mock
 import pytest
 
 import subprocess
+import io
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 from transcriber import transcribe_audio
 
 
-def fake_run(cmd, capture_output=True, text=True, encoding='utf-8', check=True, **kwargs):
-    # Simulate whisper by creating output file
+def fake_popen(cmd, stdout=subprocess.PIPE, stderr=None, text=True, encoding='utf-8', env=None, **kwargs):
+    # Simulate whisper by creating output file and returning dummy process
     output_dir = Path(cmd[cmd.index('--output_dir') + 1])
     audio_index = cmd.index('whisper') + 1
     audio_path = Path(cmd[audio_index])
     default_output = output_dir / f"{audio_path.stem}.txt"
     default_output.write_text('dummy')
-    return subprocess.CompletedProcess(cmd, 0, stdout='ok', stderr='')
+
+    class DummyProc:
+        def __init__(self):
+            self.stdout = io.StringIO('')
+            self.returncode = 0
+
+        def wait(self):
+            return self.returncode
+
+    return DummyProc()
 
 
 def test_transcriber_handles_space_in_path(tmp_path):
@@ -28,7 +38,7 @@ def test_transcriber_handles_space_in_path(tmp_path):
     audio_file = space_dir / "audio.wav"
     audio_file.write_text("fake")
 
-    with mock.patch('subprocess.run', side_effect=fake_run):
+    with mock.patch('subprocess.Popen', side_effect=fake_popen):
         result = transcribe_audio(str(audio_file), model='base', language='en')
 
     assert Path(result).exists()
