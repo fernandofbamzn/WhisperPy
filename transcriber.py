@@ -182,9 +182,11 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
         )
 
         fp16_warning = "FP16 is not supported on CPU; using FP32 instead"
+
         # Captura las líneas de progreso "XX%|" que muestra HuggingFace durante
         # la descarga de modelos para convertirlas en un mensaje más legible
         progress_re = re.compile(r"(?P<pct>\d{1,3})%")
+
         for line in process.stdout:
             if downloading and model_file.exists():
                 if status_cb:
@@ -196,6 +198,7 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
             if fp16_warning in line:
                 logger.info("Whisper: %s", fp16_warning)
                 continue
+
             m = progress_re.search(line)
             if m:
                 pct = m.group("pct")
@@ -203,6 +206,7 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
                 logger.info("Whisper: %s", msg)
                 if status_cb:
                     status_cb(msg)
+
                 continue
             logger.info("Whisper: %s", line)
             if status_cb:
