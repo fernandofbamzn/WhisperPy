@@ -2,7 +2,8 @@ import os
 import subprocess
 import sys
 import logging
-from env_manager import EnvironmentManager # Importar EnvironmentManager
+from pathlib import Path
+from env_manager import EnvironmentManager  # Importar EnvironmentManager
 
 logger = logging.getLogger(__name__)
 
@@ -35,13 +36,13 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
     RuntimeError
         If Whisper execution fails or the output file is not created.
     """
-    audio_path = os.path.abspath(audio_path)
-    output_dir = os.path.dirname(audio_path)
-    base_name = os.path.splitext(os.path.basename(audio_path))[0]    
-    file_extension = os.path.splitext(audio_path)[1].lower() # Obtener la extensión del archivo
+    audio_path = Path(audio_path).resolve()
+    output_dir = audio_path.parent
+    base_name = audio_path.stem
+    file_extension = audio_path.suffix.lower()  # Obtener la extensión del archivo
 
-    default_output = os.path.join(output_dir, f"{base_name}.txt")
-    target_output = os.path.join(output_dir, f"{base_name}_transc.txt")
+    default_output = output_dir / f"{base_name}.txt"
+    target_output = output_dir / f"{base_name}_transc.txt"
     logger.info("Preparando transcripción de %s", audio_path)
     
     # Formatos de audio comunes que definitivamente necesitan FFmpeg para ser procesados por Whisper.
@@ -49,7 +50,7 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
     if file_extension in ['.m4a', '.mp3', '.ogg', '.flac', '.webm']: # Puedes añadir más extensiones si es necesario
         if not EnvironmentManager.check_ffmpeg_executable(): # Utiliza el método estático de EnvironmentManager
             msg = (
-                f"El archivo '{os.path.basename(audio_path)}' es de tipo '{file_extension}' "
+                f"El archivo '{audio_path.name}' es de tipo '{file_extension}' "
                 "y requiere FFmpeg para su procesamiento. "
                 "FFmpeg no se encontró en el sistema o no está en el PATH. "
                 "Por favor, instala FFmpeg y asegúrate de que esté accesible. "
@@ -60,28 +61,33 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
                 status_cb(f"ERROR: {msg}")
             raise RuntimeError(msg)
     if env_path:
-        python_exe = os.path.join(env_path, "Scripts", "python.exe") if os.name == "nt" else os.path.join(env_path, "bin", "python")
-        if not os.path.exists(python_exe):
+        env_path = Path(env_path)
+        python_exe = (
+            env_path / "Scripts" / "python.exe"
+            if os.name == "nt"
+            else env_path / "bin" / "python"
+        )
+        if not python_exe.exists():
             raise RuntimeError(f"No se encontró el intérprete de Python en {python_exe}")
-        cmd = [python_exe, "-m", "whisper", audio_path,
+        cmd = [str(python_exe), "-m", "whisper", str(audio_path),
                "--model", model,
                "--output_format", "txt",
-               "--output_dir", output_dir]
+               "--output_dir", str(output_dir)]
         logger.info("Usando intérprete de entorno: %s", python_exe)
     else:
-        cmd = [sys.executable, "-m", "whisper", audio_path,
+        cmd = [sys.executable, "-m", "whisper", str(audio_path),
                "--model", model,
                "--output_format", "txt",
-               "--output_dir", output_dir]
+               "--output_dir", str(output_dir)]
         logger.info("Usando intérprete actual: %s", sys.executable)
 
     if language:
         cmd.extend(["--language", language])
     logger.info("Ejecutando comando: %s", " ".join(cmd))
 
-    cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "whisper")
-    model_file = os.path.join(cache_dir, f"{model}.pt")
-    if status_cb and not os.path.exists(model_file):
+    cache_dir = Path(os.path.expanduser("~")) / ".cache" / "whisper"
+    model_file = cache_dir / f"{model}.pt"
+    if status_cb and not model_file.exists():
         status_cb("Descargando modelo...")
 
     if status_cb:
@@ -103,7 +109,7 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
         logger.error("Error al ejecutar Whisper: %s", msg)
         raise RuntimeError(f"Error al ejecutar Whisper: {msg}")
 
-    if not os.path.exists(default_output):
+    if not default_output.exists():
         raise RuntimeError(f"No se encontró el archivo de salida esperado: {default_output}")
 
     try:
@@ -115,7 +121,7 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
         logger.error("Error al mover el archivo de salida: %s", e)
         raise RuntimeError(f"Error al mover el archivo de salida: {e}")
 
-    if not os.path.exists(target_output) or os.path.getsize(target_output) <= 0:
+    if not target_output.exists() or target_output.stat().st_size <= 0:
         raise RuntimeError('Transcripción vacía')
 
-    return target_output
+    return str(target_output)
