@@ -49,10 +49,11 @@ El proyecto se divide en varios módulos principales:
   obtiene la lista de modelos remotos y detecta modelos locales en la
   carpeta `models` o en `~/.cache/whisper`. La GUI marca como "(local)"
   aquellos modelos ya descargados.
-- **`transcriber.py`**: contiene la función `transcribe_audio` encargada de
-  invocar la CLI de Whisper y manejar los archivos de salida. Si no se
-  indica un entorno virtual, utiliza el mismo intérprete de Python que
-  ejecuta la aplicación para evitar problemas con rutas con espacios.
+- **`transcriber.py`**: contiene la función `transcribe_audio` y la nueva
+  `convert_audio`. Si el formato de audio no es compatible, se utiliza
+  `ffmpeg` para convertirlo a WAV antes de lanzar la transcripción.
+  Cuando no se especifica un entorno virtual se emplea el intérprete de
+  Python actual para evitar problemas con rutas con espacios.
 - **`env_manager.py`**: ofrece la clase `EnvironmentManager` para crear y
   preparar entornos virtuales.
 
@@ -68,7 +69,9 @@ El proyecto se divide en varios módulos principales:
   devuelve un diccionario con los modelos disponibles combinando locales y
   remotos.
 - **`transcribe_audio()`** (`transcriber.py`): ejecuta Whisper mediante
-  `subprocess`, mueve el archivo de salida y devuelve la ruta final.
+  `subprocess`. Si el audio tiene una extensión no reconocida se convierte
+  a WAV con `convert_audio` antes de invocar la CLI. Luego mueve el archivo
+  de salida y devuelve la ruta final.
 - **`EnvironmentManager`** (`env_manager.py`): ofrece `create_env` para
   crear un entorno virtual y `install_dependencies` para instalar solo los
   paquetes que no estén presentes.
