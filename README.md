@@ -24,6 +24,9 @@ Aplicación gráfica básica para pruebas con Whisper.
    Si `main.py` detecta la carpeta `venv` y no se está dentro de un entorno
    virtual, reiniciará el programa utilizando ese entorno.
 
+Al abrir la aplicación, el desplegable de modelos indica con "(local)" los
+modelos que ya se encuentran descargados en la carpeta `models`.
+
 ## Guía para desarrolladores
 
 ### Estructura del código
@@ -38,9 +41,12 @@ El proyecto se divide en varios módulos principales:
   la transcripción en un hilo para evitar bloqueos.
 - **`model_manager.py`**: incluye la clase `WhisperModelManager` que
   obtiene la lista de modelos remotos y detecta modelos locales en la
-  carpeta `models`.
+  carpeta `models`. La GUI marca como "(local)" aquellos modelos ya
+  descargados.
 - **`transcriber.py`**: contiene la función `transcribe_audio` encargada de
-  invocar la CLI de Whisper y manejar los archivos de salida.
+  invocar la CLI de Whisper y manejar los archivos de salida. Si no se
+  indica un entorno virtual, utiliza el mismo intérprete de Python que
+  ejecuta la aplicación para evitar problemas con rutas con espacios.
 - **`env_manager.py`**: ofrece la clase `EnvironmentManager` para crear y
   preparar entornos virtuales.
 

@@ -35,8 +35,14 @@ class WhisperGUI:
         )
         ttk.Button(file_frame, text="Seleccionar", command=self.seleccionar_archivo).pack(side=tk.LEFT)
 
-        opciones = WhisperModelManager.obtener_modelos_online()
-        modelos = list(opciones.keys())
+        disponibles = WhisperModelManager.get_available_models()
+        locales = WhisperModelManager._modelos_locales()
+        self._model_map = {}
+        modelos = []
+        for nombre in disponibles:
+            display = f"{nombre} (local)" if nombre in locales else nombre
+            modelos.append(display)
+            self._model_map[display] = nombre
 
         config_frame = ttk.Frame(cont)
         config_frame.pack(fill=tk.X, pady=5)
@@ -82,7 +88,8 @@ class WhisperGUI:
 
     def _transcribir(self) -> None:
         ruta = self.file_path.get()
-        modelo = self.modelo.get()
+        seleccionado = self.modelo.get()
+        modelo = self._model_map.get(seleccionado, seleccionado)
         idioma = self.idioma.get() or None
         try:
             self._append_message("Transcribiendo...")

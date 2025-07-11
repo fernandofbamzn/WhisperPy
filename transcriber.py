@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 
 
 def transcribe_audio(audio_path, model, language, env_path=None):
@@ -43,7 +44,7 @@ def transcribe_audio(audio_path, model, language, env_path=None):
                "--output_format", "txt",
                "--output_dir", output_dir]
     else:
-        cmd = ["whisper", audio_path,
+        cmd = [sys.executable, "-m", "whisper", audio_path,
                "--model", model,
                "--output_format", "txt",
                "--output_dir", output_dir]
