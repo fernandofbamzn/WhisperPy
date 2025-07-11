@@ -7,7 +7,7 @@ transcripción y la gestión de modelos.
 ## Requisitos
 
 - Python 3.8 o superior
-- Bibliotecas `requests` y `openai-whisper`
+- Bibliotecas `requests`, `openai-whisper` y `whisperx` (opcional para asignar hablantes)
 - (Opcional) crear un entorno virtual llamado `WhispVenv` en la carpeta del programa
 
 ## Ejecución
@@ -16,10 +16,12 @@ transcripción y la gestión de modelos.
    ```bash
    python -m venv WhispVenv
    source WhispVenv/bin/activate  # En Windows: WhispVenv\Scripts\activate
-   pip install requests openai-whisper
+   pip install requests openai-whisper whisperx
    ```
    Estas dependencias también se instalarán automáticamente desde
    `main.py` si no se encuentran presentes.
+   Ten en cuenta que `whisperx` descargará modelos adicionales la primera
+   vez que se utilice la opción de diarización de hablantes.
 
 2. Ejecutar la aplicación:
    ```bash
@@ -32,6 +34,8 @@ transcripción y la gestión de modelos.
 Al abrir la aplicación, el desplegable de modelos indica con "(local)" los
 modelos que ya se encuentran descargados en la carpeta `models` o en
 `~/.cache/whisper`.
+Si activas la diarización de hablantes se descargarán modelos extras la
+primera vez que se ejecute esta función.
 
 ## Guía para desarrolladores
 
@@ -49,11 +53,13 @@ El proyecto se divide en varios módulos principales:
   obtiene la lista de modelos remotos y detecta modelos locales en la
   carpeta `models` o en `~/.cache/whisper`. La GUI marca como "(local)"
   aquellos modelos ya descargados.
-- **`transcriber.py`**: contiene la función `transcribe_audio` y la nueva
-  `convert_audio`. Si el formato de audio no es compatible, se utiliza
-  `ffmpeg` para convertirlo a WAV antes de lanzar la transcripción.
-  Cuando no se especifica un entorno virtual se emplea el intérprete de
-  Python actual para evitar problemas con rutas con espacios.
+- **`transcriber.py`**: contiene la función `transcribe_audio` encargada de
+  invocar la CLI de Whisper y manejar los archivos de salida. Si no se
+  indica un entorno virtual, utiliza el mismo intérprete de Python que
+  ejecuta la aplicación para evitar problemas con rutas con espacios.
+- Adicionalmente dispone de `diarize_transcription` para etiquetar
+  hablantes en la transcripción usando `whisperx`.
+
 - **`env_manager.py`**: ofrece la clase `EnvironmentManager` para crear y
   preparar entornos virtuales.
 
