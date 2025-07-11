@@ -86,7 +86,6 @@ class WhisperModelManager:
         # Rutas donde buscar el modelo
         dirs = [
             os.path.join(os.path.dirname(os.path.abspath(__file__)), "models"),
-            os.path.join(os.path.expanduser("~"), ".cache", "whisper"),
         ]
 
         for directorio in dirs:

@@ -112,6 +112,7 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
 
     # Establecer WHISPER_CACHE_DIR para que Whisper guarde los modelos aquí
     whisper_env['WHISPER_CACHE_DIR'] = local_models_dir
+    whisper_env['XDG_CACHE_HOME'] = local_models_dir
     logger.info(f"Los modelos de Whisper se gestionarán en: {local_models_dir}")
 
     if env_path:
@@ -130,6 +131,8 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
             str(audio_for_whisper),
             "--model",
             model,
+            "--model_dir",
+            local_models_dir,
             "--output_format",
             "txt",
             "--output_dir",
@@ -144,6 +147,8 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
             str(audio_for_whisper),
             "--model",
             model,
+            "--model_dir",
+            local_models_dir,
             "--output_format",
             "txt",
             "--output_dir",
