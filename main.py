@@ -2,6 +2,7 @@ import os
 import sys
 import tkinter as tk
 import logging
+from pathlib import Path
 from typing import List
 
 from env_manager import EnvironmentManager
@@ -22,20 +23,24 @@ class BufferHandler(logging.Handler):
 
 def prepare_env() -> str:
     """Ensure the WhispVenv environment exists and relaunch under it."""
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    env_path = os.path.join(base_dir, ENV_NAME)
+    base_dir = Path(__file__).resolve().parent
+    env_path = base_dir / ENV_NAME
     manager = EnvironmentManager()
     manager.create_env(env_path)
     manager.install_dependencies(env_path, ["openai-whisper", "requests", "whisperx"])
 
-    running_env = os.path.abspath(sys.prefix)
-    target_env = os.path.abspath(env_path)
+    running_env = Path(sys.prefix).resolve()
+    target_env = env_path.resolve()
     if running_env != target_env:
-        python_exec = os.path.join(env_path, "Scripts", "python.exe") if os.name == "nt" else os.path.join(env_path, "bin", "python")
+        python_exec = (
+            env_path / "Scripts" / "python.exe"
+            if os.name == "nt"
+            else env_path / "bin" / "python"
+        )
         logger.info("Reiniciando aplicación en el entorno virtual...")
-        os.execv(python_exec, [python_exec] + sys.argv)
+        os.execv(str(python_exec), [str(python_exec)] + sys.argv)
 
-    return env_path
+    return str(env_path)
 
 
 if __name__ == "__main__":
