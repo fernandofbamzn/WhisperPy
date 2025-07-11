@@ -21,7 +21,34 @@ class EnvironmentManager:
         """Install the given packages into the virtual environment."""
         if not packages:
             return
-        python_exe = os.path.join(env_path, 'Scripts', 'python.exe') if os.name == 'nt' else os.path.join(env_path, 'bin', 'python')
-        logger.info("Instalando dependencias...")
-        cmd = [python_exe, '-m', 'pip', 'install', *packages]
+
+        python_exe = os.path.join(
+            env_path,
+            "Scripts",
+            "python.exe",
+        ) if os.name == "nt" else os.path.join(env_path, "bin", "python")
+        logger.info("Verificando dependencias...")
+        to_install: List[str] = []
+
+        for pkg in packages:
+            try:
+                subprocess.run(
+                    [python_exe, "-m", "pip", "show", pkg],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=True,
+                )
+                print(f"  '{pkg}' ya está instalado")
+            except subprocess.CalledProcessError:
+                logger.info(f"  '{pkg}' no está instalado")
+                to_install.append(pkg)
+
+        if not to_install:
+            logger.info("Todas las dependencias están satisfechas.")
+            return
+
+        logger.info(f"Instalando dependencias: {' '.join(to_install)}")
+        cmd = [python_exe, "-m", "pip", "install", *to_install]
+
         subprocess.check_call(cmd)
+        print("Instalación completada")

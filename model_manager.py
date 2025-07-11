@@ -45,14 +45,21 @@ class WhisperModelManager:
 
     @staticmethod
     def _modelos_locales() -> Dict[str, str]:
-        """Busca modelos disponibles localmente en el directorio 'models'."""
+        """Busca modelos disponibles localmente."""
         modelos = {}
-        directorio = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
-        if os.path.isdir(directorio):
-            for archivo in os.listdir(directorio):
-                if archivo.endswith(".pt"):
-                    nombre = os.path.splitext(archivo)[0]
-                    modelos[nombre] = f"Modelo local disponible ({archivo})"
+
+        dirs = [
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "models"),
+            os.path.join(os.path.expanduser("~"), ".cache", "whisper"),
+        ]
+
+        for directorio in dirs:
+            if os.path.isdir(directorio):
+                for archivo in os.listdir(directorio):
+                    if archivo.endswith(".pt"):
+                        nombre = os.path.splitext(archivo)[0]
+                        modelos[nombre] = f"Modelo local disponible ({archivo})"
+
         return modelos
 
     @classmethod

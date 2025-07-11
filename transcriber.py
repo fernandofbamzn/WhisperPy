@@ -90,4 +90,7 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
         logger.error("Error al mover el archivo de salida: %s", e)
         raise RuntimeError(f"Error al mover el archivo de salida: {e}")
 
+    if not os.path.exists(target_output) or os.path.getsize(target_output) <= 0:
+        raise RuntimeError('Transcripción vacía')
+
     return target_output
