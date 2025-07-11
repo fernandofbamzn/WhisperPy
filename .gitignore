@@ -1,7 +1,10 @@
 /WhispVenv/
 /Venv/
+/models/
 __pycache__/
 *.m4a
+*.wav
 *.txt
 whisper_v1.py
 whisper_v2.py
+app_secrets.py
