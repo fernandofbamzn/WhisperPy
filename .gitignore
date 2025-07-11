@@ -7,4 +7,4 @@ __pycache__/
 *.txt
 whisper_v1.py
 whisper_v2.py
-secrets.py
+app_secrets.py

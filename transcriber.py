@@ -8,7 +8,7 @@ from env_manager import EnvironmentManager  # Importar EnvironmentManager
 
 # Importamos el token desde tu fichero de secretos.
 try:
-    from secrets import HUGGING_FACE_TOKEN
+    from app_secrets import HUGGING_FACE_TOKEN
 except ImportError:
     HUGGING_FACE_TOKEN = None
 # --- FIN DE CAMBIOS ---
@@ -295,7 +295,7 @@ def diarize_transcription(audio_path: str, transcript_file: str, status_cb=None)
     model = whisperx.load_model("small", device, compute_type=compute_type)
     result = model.transcribe(audio_path)
     #diarize_model = whisperx.DiarizationPipeline(use_auth_token=None, device=device)
-    diarize_model = whisperx.diarize.DiarizationPipeline(use_auth_token=HF_TOKEN, device=device)
+    diarize_model = whisperx.diarize.DiarizationPipeline(use_auth_token=HUGGING_FACE_TOKEN, device=device)
     diarize_segments = diarize_model(audio_path)
     result = whisperx.assign_word_speakers(diarize_segments, result)
 
