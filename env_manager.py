@@ -52,3 +52,20 @@ class EnvironmentManager:
 
         subprocess.check_call(cmd)
         print("Instalación completada")
+        
+    @staticmethod
+    def check_ffmpeg_executable() -> bool:
+        """Comprueba si el ejecutable de FFmpeg está disponible en el PATH."""
+        try:
+            # Intentar ejecutar ffmpeg -version para verificar su presencia
+            subprocess.run(
+                ["ffmpeg", "-version"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=True
+            )
+            logger.info("FFmpeg encontrado en el sistema.")
+            return True
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            logger.warning("FFmpeg no encontrado o no accesible en el PATH del sistema.")
+            return False

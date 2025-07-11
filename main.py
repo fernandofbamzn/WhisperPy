@@ -45,6 +45,20 @@ if __name__ == "__main__":
     logging.getLogger().addHandler(buffer_handler)
 
     prepare_env()
+
+    # Comprobar FFmpeg después de que prepare_env haya potencialmente reiniciado la app
+    # y antes de iniciar la GUI principal. El mensaje se enviará al log.
+    if not EnvironmentManager.check_ffmpeg_executable():
+        logger.warning(
+            "ADVERTENCIA: FFmpeg no se encontró en tu sistema o no está en el PATH. "
+            "FFmpeg es esencial para procesar archivos de audio como .mp3 y .m4a. "
+            "Sin él, la transcripción de estos formatos fallará. "
+            "Por favor, instala FFmpeg y asegúrate de que esté en tu variable de entorno PATH. "
+            "Puedes descargarlo desde: https://ffmpeg.org/download.html"
+            "https://es.wikihow.com/instalar-FFmpeg-en-Windows"
+            "https://www.gyan.dev/ffmpeg/builds/ffmpeg-git-full.7z"
+        )
+
     root = tk.Tk()
     app = WhisperGUI(root)
 

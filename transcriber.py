@@ -2,7 +2,7 @@ import os
 import subprocess
 import sys
 import logging
-
+from env_manager import EnvironmentManager # Importar EnvironmentManager
 
 logger = logging.getLogger(__name__)
 
@@ -37,11 +37,28 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
     """
     audio_path = os.path.abspath(audio_path)
     output_dir = os.path.dirname(audio_path)
-    base_name = os.path.splitext(os.path.basename(audio_path))[0]
+    base_name = os.path.splitext(os.path.basename(audio_path))[0]    
+    file_extension = os.path.splitext(audio_path)[1].lower() # Obtener la extensión del archivo
+
     default_output = os.path.join(output_dir, f"{base_name}.txt")
     target_output = os.path.join(output_dir, f"{base_name}_transc.txt")
     logger.info("Preparando transcripción de %s", audio_path)
-
+    
+    # Formatos de audio comunes que definitivamente necesitan FFmpeg para ser procesados por Whisper.
+    # Los archivos WAV a veces pueden ser procesados sin FFmpeg si cumplen ciertos requisitos.
+    if file_extension in ['.m4a', '.mp3', '.ogg', '.flac', '.webm']: # Puedes añadir más extensiones si es necesario
+        if not EnvironmentManager.check_ffmpeg_executable(): # Utiliza el método estático de EnvironmentManager
+            msg = (
+                f"El archivo '{os.path.basename(audio_path)}' es de tipo '{file_extension}' "
+                "y requiere FFmpeg para su procesamiento. "
+                "FFmpeg no se encontró en el sistema o no está en el PATH. "
+                "Por favor, instala FFmpeg y asegúrate de que esté accesible. "
+                "Puedes descargarlo desde: https://ffmpeg.org/download.html"
+            )
+            logger.error(msg)
+            if status_cb:
+                status_cb(f"ERROR: {msg}")
+            raise RuntimeError(msg)
     if env_path:
         python_exe = os.path.join(env_path, "Scripts", "python.exe") if os.name == "nt" else os.path.join(env_path, "bin", "python")
         if not os.path.exists(python_exe):
@@ -72,7 +89,14 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
     logger.info("Iniciando transcripción con modelo %s", model)
 
     try:
-        subprocess.run(cmd, capture_output=True, text=True, check=True)
+        # Almacenamos el resultado de subprocess.run para acceder a stdout/stderr
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        # Registramos la salida estándar y de error para depuración, incluso si no hay error
+        if result.stdout:
+            logger.info("Salida estándar de Whisper:\n%s", result.stdout.strip())
+        if result.stderr:
+            logger.warning("Salida de error de Whisper:\n%s", result.stderr.strip())
+
     except subprocess.CalledProcessError as e:
         msg = e.stderr.strip() or e.stdout.strip() or str(e)
         logger.error("Error al ejecutar Whisper: %s", msg)
