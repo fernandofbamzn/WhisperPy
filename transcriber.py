@@ -2,7 +2,7 @@ import os
 import subprocess
 import sys
 import logging
-from env_manager import EnvironmentManager # Importar EnvironmentManager
+from env_manager import EnvironmentManager
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +34,12 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
     ------
     RuntimeError
         If Whisper execution fails or the output file is not created.
+        Also if FFmpeg is required but not found.
     """
     audio_path = os.path.abspath(audio_path)
     output_dir = os.path.dirname(audio_path)
-    base_name = os.path.splitext(os.path.basename(audio_path))[0]    
-    file_extension = os.path.splitext(audio_path)[1].lower() # Obtener la extensión del archivo
+    base_name = os.path.splitext(os.path.basename(audio_path))[0]
+    file_extension = os.path.splitext(audio_path)[1].lower() 
 
     default_output = os.path.join(output_dir, f"{base_name}.txt")
     target_output = os.path.join(output_dir, f"{base_name}_transc.txt")
@@ -59,6 +60,12 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
             if status_cb:
                 status_cb(f"ERROR: {msg}")
             raise RuntimeError(msg)
+
+    # Configuración de los comandos y entorno para el subproceso de Whisper
+    # Crear un diccionario de entorno copiando el actual y configurando PYTHONIOENCODING
+    whisper_env = os.environ.copy()
+    whisper_env['PYTHONIOENCODING'] = 'utf-8'
+
     if env_path:
         python_exe = os.path.join(env_path, "Scripts", "python.exe") if os.name == "nt" else os.path.join(env_path, "bin", "python")
         if not os.path.exists(python_exe):
@@ -90,8 +97,7 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
 
     try:
         # Almacenamos el resultado de subprocess.run para acceder a stdout/stderr
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', check=True)
-        
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace', check=True, env=whisper_env)
         # Registramos la salida estándar y de error para depuración, incluso si no hay error
         if result.stdout:
             logger.info("Salida estándar de Whisper:\n%s", result.stdout.strip())
@@ -104,7 +110,10 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
         raise RuntimeError(f"Error al ejecutar Whisper: {msg}")
 
     if not os.path.exists(default_output):
-        raise RuntimeError(f"No se encontró el archivo de salida esperado: {default_output}")
+        error_msg = f"No se encontró el archivo de salida esperado: {default_output}. " \
+                    "Verifica los logs anteriores para posibles errores de Whisper."
+        logger.error(error_msg)
+        raise RuntimeError(error_msg)
 
     try:
         os.replace(default_output, target_output)
