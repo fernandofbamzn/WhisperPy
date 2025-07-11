@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def convert_audio(input_path: str) -> str:
-    """Convert an audio file to WAV using FFmpeg and return the new path."""
+    """Convert an audio file to a Whisper-compatible WAV and return its path."""
     if not EnvironmentManager.check_ffmpeg_executable():
         msg = (
             "Se requiere FFmpeg para convertir el archivo de audio. "
@@ -20,10 +20,25 @@ def convert_audio(input_path: str) -> str:
         raise RuntimeError(msg)
 
     output_path = os.path.splitext(input_path)[0] + ".wav"
+    if Path(output_path).exists():
+        logger.info("Usando WAV existente: %s", output_path)
+        return output_path
+
     logger.info("Convirtiendo %s a %s", input_path, output_path)
     try:
         subprocess.run(
-            ["ffmpeg", "-y", "-i", input_path, output_path], check=True
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                input_path,
+                "-ar",
+                "16000",
+                "-ac",
+                "1",
+                output_path,
+            ],
+            check=True,
         )
     except subprocess.CalledProcessError as e:
         logger.error("Error al convertir audio: %s", e)
@@ -68,34 +83,27 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
 
 
     default_output = output_dir / f"{base_name}.txt"
-    target_output = output_dir / f"{base_name}_transc.txt"
+    target_output = output_dir / f"{base_name}_{model}.txt"
     logger.info("Preparando transcripción de %s", audio_path)
 
-    supported = {".wav", ".m4a", ".mp3", ".ogg", ".flac", ".webm"}
     audio_for_whisper = audio_path
-
-    # Convertir archivos con extensiones desconocidas a WAV
-    if file_extension not in supported:
-        if status_cb:
-            status_cb("Convirtiendo audio...")
-        audio_for_whisper = convert_audio(audio_path)
-    # Verificar FFmpeg para extensiones que dependen de él
-    elif file_extension in [".m4a", ".mp3", ".ogg", ".flac", ".webm"]:
+    if file_extension != ".wav":
         if not EnvironmentManager.check_ffmpeg_executable():
             msg = (
-                f"El archivo '{audio_path.name}' es de tipo '{file_extension}' "
-                "y requiere FFmpeg para su procesamiento. "
-                "FFmpeg no se encontró en el sistema o no está en el PATH. "
-                "Por favor, instala FFmpeg y asegúrate de que esté accesible. "
-                "Puedes descargarlo desde: https://ffmpeg.org/download.html"
+                "Se requiere FFmpeg para procesar el archivo de audio. "
+                "FFmpeg no se encontró en el sistema o no está en el PATH."
             )
             logger.error(msg)
             if status_cb:
                 status_cb(f"ERROR: {msg}")
             raise RuntimeError(msg)
+        if status_cb:
+            status_cb("Convirtiendo audio...")
+        audio_for_whisper = convert_audio(audio_path)
 
     # Configuración del entorno para Whisper
-    os.environ['PYTHONIOENCODING'] = 'utf-8'
+    whisper_env = os.environ.copy()
+    whisper_env['PYTHONIOENCODING'] = 'utf-8'
 
     # Definir la ruta local para guardar los modelos
     app_base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -103,7 +111,7 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
     os.makedirs(local_models_dir, exist_ok=True)  # Asegurarse de que la carpeta 'models' exista
 
     # Establecer WHISPER_CACHE_DIR para que Whisper guarde los modelos aquí
-    os.environ['WHISPER_CACHE_DIR'] = local_models_dir
+    whisper_env['WHISPER_CACHE_DIR'] = local_models_dir
     logger.info(f"Los modelos de Whisper se gestionarán en: {local_models_dir}")
 
     if env_path:
@@ -157,7 +165,14 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
 
     try:
         # Almacenamos el resultado de subprocess.run para acceder a stdout/stderr
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', check=True)
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            check=True,
+            env=whisper_env,
+        )
         # Registramos la salida estándar y de error para depuración, incluso si no hay error
         if result.stdout:
             logger.info("Salida estándar de Whisper:\n%s", result.stdout.strip())

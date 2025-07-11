@@ -12,7 +12,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from transcriber import transcribe_audio
 
 
-def fake_run(cmd, capture_output=True, text=True, encoding='utf-8', check=True):
+def fake_run(cmd, capture_output=True, text=True, encoding='utf-8', check=True, **kwargs):
     # Simulate whisper by creating output file
     output_dir = Path(cmd[cmd.index('--output_dir') + 1])
     audio_index = cmd.index('whisper') + 1
@@ -33,3 +33,4 @@ def test_transcriber_handles_space_in_path(tmp_path):
 
     assert Path(result).exists()
     assert Path(result).parent == space_dir
+    assert Path(result).name == 'audio_base.txt'
