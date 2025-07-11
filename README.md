@@ -59,6 +59,7 @@ El proyecto se divide en varios módulos principales:
   ejecuta la aplicación para evitar problemas con rutas con espacios.
 - Adicionalmente dispone de `diarize_transcription` para etiquetar
   hablantes en la transcripción usando `whisperx`.
+
 - **`env_manager.py`**: ofrece la clase `EnvironmentManager` para crear y
   preparar entornos virtuales.
 
@@ -74,7 +75,9 @@ El proyecto se divide en varios módulos principales:
   devuelve un diccionario con los modelos disponibles combinando locales y
   remotos.
 - **`transcribe_audio()`** (`transcriber.py`): ejecuta Whisper mediante
-  `subprocess`, mueve el archivo de salida y devuelve la ruta final.
+  `subprocess`. Si el audio tiene una extensión no reconocida se convierte
+  a WAV con `convert_audio` antes de invocar la CLI. Luego mueve el archivo
+  de salida y devuelve la ruta final.
 - **`EnvironmentManager`** (`env_manager.py`): ofrece `create_env` para
   crear un entorno virtual y `install_dependencies` para instalar solo los
   paquetes que no estén presentes.
