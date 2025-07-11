@@ -90,7 +90,8 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
 
     try:
         # Almacenamos el resultado de subprocess.run para acceder a stdout/stderr
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', check=True)
+        
         # Registramos la salida estándar y de error para depuración, incluso si no hay error
         if result.stdout:
             logger.info("Salida estándar de Whisper:\n%s", result.stdout.strip())
