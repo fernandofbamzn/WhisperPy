@@ -1,6 +1,10 @@
 import os
 from typing import Dict
-import requests
+
+try:
+    import requests
+except Exception:  # requests may be missing
+    requests = None
 
 class WhisperModelManager:
     """Gestiona los modelos de Whisper disponibles."""
@@ -15,7 +19,13 @@ class WhisperModelManager:
 
     @staticmethod
     def obtener_modelos_online() -> Dict[str, str]:
-        """Obtiene la lista de modelos desde HuggingFace."""
+        """Obtiene la lista de modelos desde HuggingFace.
+
+        Si la biblioteca ``requests`` no está disponible o sucede un error de
+        red, se devuelven los modelos de :data:`FALLBACK_MODELS`.
+        """
+        if requests is None:
+            return WhisperModelManager.FALLBACK_MODELS
         try:
             url = "https://huggingface.co/api/models?search=openai/whisper"
             resp = requests.get(url, timeout=10)
@@ -37,7 +47,7 @@ class WhisperModelManager:
     def _modelos_locales() -> Dict[str, str]:
         """Busca modelos disponibles localmente en el directorio 'models'."""
         modelos = {}
-        directorio = os.path.expanduser("models")
+        directorio = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
         if os.path.isdir(directorio):
             for archivo in os.listdir(directorio):
                 if archivo.endswith(".pt"):

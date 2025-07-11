@@ -2,7 +2,7 @@ import os
 import sys
 import tkinter as tk
 
-from whisper_v1 import WhisperGUI
+from gui import WhisperGUI
 
 
 def ensure_venv():

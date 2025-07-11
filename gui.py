@@ -2,50 +2,9 @@ import os
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
-from typing import Dict
 
-try:
-    import requests
-except Exception:
-    requests = None
-
-try:
-    import whisper
-except Exception:
-    whisper = None
-
-
-class WhisperModelManager:
-    """Obtiene modelos de Whisper."""
-
-    FALLBACK_MODELS = {
-        "tiny": "Muy rápido, baja precisión (~39 MB)",
-        "base": "Rápido, precisión media (~74 MB)",
-        "small": "Compromiso velocidad/precisión (~244 MB)",
-        "medium": "Precisión alta, más lento (~769 MB)",
-        "large": "Máxima precisión, muy lento (~1.5 GB)",
-    }
-
-    @staticmethod
-    def obtener_modelos_online() -> Dict[str, str]:
-        if not requests:
-            return WhisperModelManager.FALLBACK_MODELS
-        try:
-            url = "https://huggingface.co/api/models?search=openai/whisper"
-            resp = requests.get(url, timeout=10)
-            resp.raise_for_status()
-            data = resp.json()
-            modelos = {
-                m["id"].replace("openai/whisper-", ""): WhisperModelManager.FALLBACK_MODELS.get(
-                    m["id"].split("-")[-1], "Modelo disponible"
-                )
-                for m in data
-                if "openai/whisper-" in m.get("id", "")
-            }
-            return modelos or WhisperModelManager.FALLBACK_MODELS
-        except Exception:
-            return WhisperModelManager.FALLBACK_MODELS
-
+from model_manager import WhisperModelManager
+from transcriber import transcribe_audio
 
 class WhisperGUI:
     """Interfaz gráfica para transcribir audios."""
@@ -76,8 +35,14 @@ class WhisperGUI:
         )
         ttk.Button(file_frame, text="Seleccionar", command=self.seleccionar_archivo).pack(side=tk.LEFT)
 
-        opciones = WhisperModelManager.obtener_modelos_online()
-        modelos = list(opciones.keys())
+        disponibles = WhisperModelManager.get_available_models()
+        locales = WhisperModelManager._modelos_locales()
+        self._model_map = {}
+        modelos = []
+        for nombre in disponibles:
+            display = f"{nombre} (local)" if nombre in locales else nombre
+            modelos.append(display)
+            self._model_map[display] = nombre
 
         config_frame = ttk.Frame(cont)
         config_frame.pack(fill=tk.X, pady=5)
@@ -123,21 +88,13 @@ class WhisperGUI:
 
     def _transcribir(self) -> None:
         ruta = self.file_path.get()
-        modelo = self.modelo.get()
+        seleccionado = self.modelo.get()
+        modelo = self._model_map.get(seleccionado, seleccionado)
         idioma = self.idioma.get() or None
-        nombre_salida = os.path.join(
-            os.path.dirname(ruta), f"{os.path.splitext(os.path.basename(ruta))[0]}_transc.txt"
-        )
-        if whisper is None:
-            self._append_message("El paquete 'whisper' no está disponible.")
-            self.progress.stop()
-            return
         try:
             self._append_message("Transcribiendo...")
-            modelo_whisper = whisper.load_model(modelo)
-            resultado = modelo_whisper.transcribe(ruta, language=idioma)
-            with open(nombre_salida, "w", encoding="utf-8") as f:
-                f.write(resultado.get("text", ""))
+            env_path = os.path.join(os.getcwd(), "venv") if self.usar_entorno.get() else None
+            nombre_salida = transcribe_audio(ruta, modelo, idioma or "", env_path)
             self._append_message(f"Transcripción completada: {nombre_salida}")
         except Exception as e:
             self._append_message(f"Error: {e}")

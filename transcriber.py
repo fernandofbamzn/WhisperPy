@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 
 
 def transcribe_audio(audio_path, model, language, env_path=None):
@@ -35,21 +36,24 @@ def transcribe_audio(audio_path, model, language, env_path=None):
     target_output = os.path.join(output_dir, f"{base_name}_transc.txt")
 
     if env_path:
-        python_exe = os.path.join(env_path, "bin", "python")
+        python_exe = os.path.join(env_path, "Scripts", "python.exe") if os.name == "nt" else os.path.join(env_path, "bin", "python")
+        if not os.path.exists(python_exe):
+            raise RuntimeError(f"No se encontró el intérprete de Python en {python_exe}")
         cmd = [python_exe, "-m", "whisper", audio_path,
                "--model", model,
-               "--language", language,
                "--output_format", "txt",
                "--output_dir", output_dir]
     else:
-        cmd = ["whisper", audio_path,
+        cmd = [sys.executable, "-m", "whisper", audio_path,
                "--model", model,
-               "--language", language,
                "--output_format", "txt",
                "--output_dir", output_dir]
 
+    if language:
+        cmd.extend(["--language", language])
+
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        subprocess.run(cmd, capture_output=True, text=True, check=True)
     except subprocess.CalledProcessError as e:
         msg = e.stderr.strip() or e.stdout.strip() or str(e)
         raise RuntimeError(f"Error al ejecutar Whisper: {msg}")
