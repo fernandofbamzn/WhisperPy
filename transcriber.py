@@ -162,7 +162,15 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
         if result.stdout:
             logger.info("Salida estándar de Whisper:\n%s", result.stdout.strip())
         if result.stderr:
-            logger.warning("Salida de error de Whisper:\n%s", result.stderr.strip())
+            stderr_msg = result.stderr.strip()
+            fp16_warning = "FP16 is not supported on CPU; using FP32 instead"
+            if fp16_warning in stderr_msg:
+                logger.info("Whisper: %s", fp16_warning)
+                stderr_msg = "\n".join(
+                    line for line in stderr_msg.splitlines() if fp16_warning not in line
+                ).strip()
+            if stderr_msg:
+                logger.warning("Salida de error de Whisper:\n%s", stderr_msg)
 
     except subprocess.CalledProcessError as e:
         msg = e.stderr.strip() or e.stdout.strip() or str(e)
