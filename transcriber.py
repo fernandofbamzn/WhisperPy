@@ -94,18 +94,16 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
                 status_cb(f"ERROR: {msg}")
             raise RuntimeError(msg)
 
-    # Configuración de los comandos y entorno para el subproceso de Whisper
-    # Crear un diccionario de entorno copiando el actual y configurando PYTHONIOENCODING
-    whisper_env = os.environ.copy()
-    whisper_env['PYTHONIOENCODING'] = 'utf-8'
+    # Configuración del entorno para Whisper
+    os.environ['PYTHONIOENCODING'] = 'utf-8'
 
     # Definir la ruta local para guardar los modelos
     app_base_dir = os.path.dirname(os.path.abspath(__file__))
     local_models_dir = os.path.join(app_base_dir, "models")
-    os.makedirs(local_models_dir, exist_ok=True) # Asegurarse de que la carpeta 'models' exista
+    os.makedirs(local_models_dir, exist_ok=True)  # Asegurarse de que la carpeta 'models' exista
 
     # Establecer WHISPER_CACHE_DIR para que Whisper guarde los modelos aquí
-    whisper_env['WHISPER_CACHE_DIR'] = local_models_dir
+    os.environ['WHISPER_CACHE_DIR'] = local_models_dir
     logger.info(f"Los modelos de Whisper se gestionarán en: {local_models_dir}")
 
     if env_path:
@@ -117,34 +115,49 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
         )
         if not python_exe.exists():
             raise RuntimeError(f"No se encontró el intérprete de Python en {python_exe}")
-        cmd = [python_exe, "-m", "whisper", audio_for_whisper,
-               "--model", model,
-               "--output_format", "txt",
-               "--output_dir", str(output_dir)]
+        cmd = [
+            str(python_exe),
+            "-m",
+            "whisper",
+            str(audio_for_whisper),
+            "--model",
+            model,
+            "--output_format",
+            "txt",
+            "--output_dir",
+            str(output_dir),
+        ]
         logger.info("Usando intérprete de entorno: %s", python_exe)
     else:
-        cmd = [sys.executable, "-m", "whisper", audio_for_whisper,
-               "--model", model,
-               "--output_format", "txt",
-               "--output_dir", str(output_dir)]
+        cmd = [
+            sys.executable,
+            "-m",
+            "whisper",
+            str(audio_for_whisper),
+            "--model",
+            model,
+            "--output_format",
+            "txt",
+            "--output_dir",
+            str(output_dir),
+        ]
         logger.info("Usando intérprete actual: %s", sys.executable)
 
     if language:
         cmd.extend(["--language", language])
     logger.info("Ejecutando comando: %s", " ".join(cmd))
 
-    cache_dir = Path(os.path.expanduser("~")) / ".cache" / "whisper"
-    model_file = cache_dir / f"{model}.pt"
-    if status_cb and not model_file.exists():
-        status_cb("Descargando modelo...")
-
+    model_file = Path(local_models_dir) / f"{model}.pt"
     if status_cb:
-        status_cb("Transcribiendo audio...")
+        if not model_file.exists():
+            status_cb("Descargando modelo...")
+        else:
+            status_cb("Transcribiendo audio...")
     logger.info("Iniciando transcripción con modelo %s", model)
 
     try:
         # Almacenamos el resultado de subprocess.run para acceder a stdout/stderr
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace', check=True, env=whisper_env)
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', check=True)
         # Registramos la salida estándar y de error para depuración, incluso si no hay error
         if result.stdout:
             logger.info("Salida estándar de Whisper:\n%s", result.stdout.strip())
