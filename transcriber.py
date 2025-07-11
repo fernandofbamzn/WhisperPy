@@ -6,6 +6,12 @@ import re
 from pathlib import Path
 from env_manager import EnvironmentManager  # Importar EnvironmentManager
 
+# Importamos el token desde tu fichero de secretos.
+try:
+    from secrets import HUGGING_FACE_TOKEN
+except ImportError:
+    HUGGING_FACE_TOKEN = None
+# --- FIN DE CAMBIOS ---
 
 logger = logging.getLogger(__name__)
 
@@ -260,6 +266,18 @@ def diarize_transcription(audio_path: str, transcript_file: str, status_cb=None)
         Path to the new transcription file with speaker labels.
     """
 
+    # Reemplaza "TU_TOKEN_DE_HUGGING_FACE" con tu token.
+    # Es necesario para la diarización.
+    # Comprobamos si el token se ha importado correctamente.
+    if not HUGGING_FACE_TOKEN:
+        msg = (
+            "No se encontró el token de Hugging Face. "
+            "Crea un fichero 'secrets.py' y añade la línea: "
+            "HUGGING_FACE_TOKEN = 'tu_token_aqui'"
+        )
+        logger.error(msg)
+        raise RuntimeError(msg)
+
     try:
         import torch
         import whisperx
@@ -276,7 +294,8 @@ def diarize_transcription(audio_path: str, transcript_file: str, status_cb=None)
 
     model = whisperx.load_model("small", device, compute_type=compute_type)
     result = model.transcribe(audio_path)
-    diarize_model = whisperx.DiarizationPipeline(use_auth_token=None, device=device)
+    #diarize_model = whisperx.DiarizationPipeline(use_auth_token=None, device=device)
+    diarize_model = whisperx.diarize.DiarizationPipeline(use_auth_token=HF_TOKEN, device=device)
     diarize_segments = diarize_model(audio_path)
     result = whisperx.assign_word_speakers(diarize_segments, result)
 
