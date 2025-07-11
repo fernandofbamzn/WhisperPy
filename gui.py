@@ -5,7 +5,7 @@ import logging
 from tkinter import filedialog, messagebox, ttk
 
 from model_manager import WhisperModelManager
-from transcriber import transcribe_audio
+from transcriber import transcribe_audio, diarize_transcription
 
 
 class TextHandler(logging.Handler):
@@ -35,6 +35,7 @@ class WhisperGUI:
         self.file_path = tk.StringVar()
         self.modelo = tk.StringVar(value="base")
         self.idioma = tk.StringVar(value="es")
+        self.diarize = tk.BooleanVar(value=False)
 
         self._build_widgets()
         handler = TextHandler(self._append_message)
@@ -70,6 +71,7 @@ class WhisperGUI:
         ttk.Label(config_frame, text="Idioma:").pack(side=tk.LEFT)
         self.combo_idioma = ttk.Combobox(config_frame, textvariable=self.idioma, values=self.IDIOMAS, width=5)
         self.combo_idioma.pack(side=tk.LEFT, padx=5)
+        ttk.Checkbutton(config_frame, text="Diarización", variable=self.diarize).pack(side=tk.LEFT, padx=5)
 
         ttk.Button(cont, text="Transcribir", command=self.iniciar_transcripcion).pack(pady=10)
 
@@ -110,7 +112,13 @@ class WhisperGUI:
         idioma = self.idioma.get() or None
         try:
             self._append_message("Iniciando transcripción...")
-            nombre_salida = transcribe_audio(ruta, modelo, idioma or "", status_cb=self._append_message)
+            nombre_salida = transcribe_audio(
+                ruta, modelo, idioma or "", status_cb=self._append_message
+            )
+            if self.diarize.get():
+                nombre_salida = diarize_transcription(
+                    ruta, nombre_salida, status_cb=self._append_message
+                )
             self._append_message(f"Transcripción completada: {nombre_salida}")
         except Exception as e:
             self._append_message(f"Error: {e}")

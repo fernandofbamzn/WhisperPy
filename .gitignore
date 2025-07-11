@@ -1,4 +1,5 @@
 /WhispVenv/
+/Venv/
 __pycache__/
 *.m4a
 *.txt

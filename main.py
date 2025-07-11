@@ -27,7 +27,7 @@ def prepare_env() -> str:
     env_path = base_dir / ENV_NAME
     manager = EnvironmentManager()
     manager.create_env(env_path)
-    manager.install_dependencies(env_path, ["openai-whisper", "requests"])
+    manager.install_dependencies(env_path, ["openai-whisper", "requests", "whisperx"])
 
     running_env = Path(sys.prefix).resolve()
     target_env = env_path.resolve()
