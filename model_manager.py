@@ -76,3 +76,28 @@ class WhisperModelManager:
             remotos = cls.FALLBACK_MODELS
         modelos = {**remotos, **locales}
         return modelos or cls.FALLBACK_MODELS
+    
+    @classmethod
+    def delete_local_model(cls, model_name: str) -> bool:
+        """
+        Intenta eliminar un modelo localmente.
+        Retorna True si se eliminó, False si no se encontró o hubo error.
+        """
+        deleted = False
+        # Rutas donde buscar el modelo
+        dirs = [
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "models"),
+            os.path.join(os.path.expanduser("~"), ".cache", "whisper"),
+        ]
+
+        for directorio in dirs:
+            model_file_path = os.path.join(directorio, f"{model_name}.pt")
+            if os.path.exists(model_file_path):
+                try:
+                    os.remove(model_file_path)
+                    print(f"Modelo '{model_name}' eliminado de {directorio}")
+                    deleted = True
+                    # No retornar aquí, para buscar y borrar en ambas ubicaciones si existe duplicado
+                except Exception as e:
+                    print(f"Error al eliminar el modelo '{model_name}' de {directorio}: {e}")
+        return deleted

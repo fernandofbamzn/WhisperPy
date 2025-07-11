@@ -72,6 +72,8 @@ class WhisperGUI:
         self.combo_idioma = ttk.Combobox(config_frame, textvariable=self.idioma, values=self.IDIOMAS, width=5)
         self.combo_idioma.pack(side=tk.LEFT, padx=5)
         ttk.Checkbutton(config_frame, text="Diarización", variable=self.diarize).pack(side=tk.LEFT, padx=5)
+        ttk.Button(config_frame, text="Borrar Modelo Local", command=self._borrar_modelo_local).pack(side=tk.LEFT, padx=5)
+
 
         ttk.Button(cont, text="Transcribir", command=self.iniciar_transcripcion).pack(pady=10)
 
@@ -81,6 +83,39 @@ class WhisperGUI:
         self.texto_mensajes = tk.Text(cont, height=10, state=tk.DISABLED)
         self.texto_mensajes.pack(fill=tk.BOTH, expand=True)
 
+    def _borrar_modelo_local(self) -> None:
+        seleccionado_display = self.modelo.get()
+        # Obtener el nombre real del modelo (sin el "(local)")
+        modelo_real = self._model_map.get(seleccionado_display, seleccionado_display)
+
+        if not modelo_real:
+            messagebox.showwarning("Aviso", "Por favor, seleccione un modelo para borrar.")
+            return
+
+        if messagebox.askyesno(
+            "Confirmar Borrado",
+            f"¿Está seguro de que desea eliminar el modelo '{modelo_real}' de su almacenamiento local?"
+        ):
+            if WhisperModelManager.delete_local_model(modelo_real):
+                messagebox.showinfo("Borrado Exitoso", f"El modelo '{modelo_real}' ha sido eliminado.")
+                self._actualizar_lista_modelos() # Función para refrescar el combobox
+            else:
+                messagebox.showerror("Error", f"No se pudo eliminar el modelo '{modelo_real}'. Puede que no exista localmente o haya un error.")
+
+    def _actualizar_lista_modelos(self) -> None:
+        """Actualiza las opciones del combobox de modelos después de un borrado."""
+        disponibles = WhisperModelManager.get_available_models()
+        locales = WhisperModelManager._modelos_locales()
+        self._model_map = {}
+        modelos_display = []
+        for nombre in disponibles:
+            display = f"{nombre} (local)" if nombre in locales else nombre
+            modelos_display.append(display)
+            self._model_map[display] = nombre
+        self.combo_modelo['values'] = modelos_display
+        # Si el modelo borrado era el seleccionado, restablecer la selección
+        if self.modelo.get() not in modelos_display:
+            self.modelo.set("base") # O cualquier modelo por defecto
 
     def seleccionar_archivo(self) -> None:
         tipos = [

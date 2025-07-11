@@ -98,6 +98,15 @@ def transcribe_audio(audio_path, model, language, env_path=None, status_cb=None)
     whisper_env = os.environ.copy()
     whisper_env['PYTHONIOENCODING'] = 'utf-8'
 
+    # Definir la ruta local para guardar los modelos
+    app_base_dir = os.path.dirname(os.path.abspath(__file__))
+    local_models_dir = os.path.join(app_base_dir, "models")
+    os.makedirs(local_models_dir, exist_ok=True) # Asegurarse de que la carpeta 'models' exista
+
+    # Establecer WHISPER_CACHE_DIR para que Whisper guarde los modelos aquí
+    whisper_env['WHISPER_CACHE_DIR'] = local_models_dir
+    logger.info(f"Los modelos de Whisper se gestionarán en: {local_models_dir}")
+
     if env_path:
         python_exe = os.path.join(env_path, "Scripts", "python.exe") if os.name == "nt" else os.path.join(env_path, "bin", "python")
         if not os.path.exists(python_exe):
